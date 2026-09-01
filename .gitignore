@@ -1,0 +1,23 @@
+# Entorno Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+
+# Datos generados/sensibles — no versionar
+extranjeria_bot/data/
+extranjeria_bot/knowledge/data/
+
+# Corpus de normativa (PDFs): pesado y no se distribuye por git.
+# Cada despliegue debe traer su propia copia de BASE DE DATOS/.
+BASE DE DATOS/
+
+# Secretos
+.env
+
+# SO / editor
+.DS_Store
+.vscode/
