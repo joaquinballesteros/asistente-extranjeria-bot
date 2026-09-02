@@ -9,11 +9,11 @@ __pycache__/
 
 # Datos generados/sensibles — no versionar
 extranjeria_bot/data/
+# El índice de Chroma (y su manifest de ingesta, ligado 1:1 a él) son
+# artefactos binarios que se regeneran con scripts/import_rules.py y
+# scripts/ingest_normativa.py; no se versionan porque cada reindexado
+# reescribe los binarios enteros y el historial de git solo crecería.
 extranjeria_bot/knowledge/data/
-
-# Corpus de normativa (PDFs): pesado y no se distribuye por git.
-# Cada despliegue debe traer su propia copia de BASE DE DATOS/.
-BASE DE DATOS/
 
 # Secretos
 .env

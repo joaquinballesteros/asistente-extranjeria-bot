@@ -187,28 +187,17 @@ devuelve directamente su chat ID.)
 Si dejas `GESTORES_CHAT_IDS` vacío, el bot sigue funcionando con
 normalidad; simplemente no se notifica a nadie cuando se acepta una cita.
 
-## 5. Añadir la normativa
+## 5. Indexar la normativa
 
-**El corpus de normativa en PDF no se distribuye por git** (por tamaño y
-para no redistribuir documentación oficial sin control de versión).
-Tienes que colocar tu propia copia en una carpeta `BASE DE DATOS/` en la
-raíz del proyecto, respetando esta estructura de subcarpetas (ver sección
-1 de `CLAUDE.md`):
+El corpus de normativa en PDF (`BASE DE DATOS/`) y el Excel de reglas
+curadas (`Normativa y Reglas/`) ya vienen incluidos en el repositorio —
+no hace falta añadir nada tú mismo. Lo que **no** viene incluido es el
+índice generado a partir de ellos (`extranjeria_bot/knowledge/data/`): es
+un artefacto binario que se regenera en tu máquina y no se versiona en
+git (cada reindexado reescribe los binarios enteros y el historial de
+git solo crecería sin límite).
 
-```
-BASE DE DATOS/
-  01_Legislación_Básica/
-  02_Procedimiento Administrativo/
-  03_Normativa Comunitarios/
-  04_Nacionalidad/
-  05_Asilo y Protección Internacional/
-  06_Menores extranjeros/
-  07_Hojas Informativas Oficiales/
-  08_Modelos Extranjeria y Tasas/       # no se indexa (no es RAG conversacional)
-```
-
-Carga el Excel de reglas curadas a formato JSON (ya viene incluido en el
-repositorio, en `Normativa y Reglas/`):
+Carga el Excel de reglas curadas a formato JSON:
 
 ```bash
 python scripts/import_rules.py
