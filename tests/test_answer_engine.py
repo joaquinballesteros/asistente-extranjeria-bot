@@ -175,6 +175,43 @@ def test_handle_turn_mensaje_no_cumple_respeta_el_idioma(situacion_autonoma, fak
     assert result.texto == answer_engine.NO_CUMPLE_MENSAJE["en"]
 
 
+class _EmbeddingClientQueFallaConVacio:
+    """Simula el comportamiento real de la API de embeddings de OpenAI,
+    que rechaza una cadena vacía con un 400 Bad Request."""
+
+    model_name = "test"
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        for texto in texts:
+            if not texto.strip():
+                raise ValueError("input cannot be an empty string")
+        return [[0.0, 0.0, 0.0, 0.0] for _ in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self.embed_documents([text])[0]
+
+
+def test_handle_turn_con_intake_recien_completado_no_manda_texto_vacio_a_embeddings(
+    situacion_autonoma, fake_llm_client
+):
+    """Regresión: query="" es la señal de "intake recién completado" (ver
+    telegram_bot/handlers.py), pero antes se colaba tal cual hasta la
+    llamada de embeddings y rompía con proveedores que rechazan cadenas
+    vacías (OpenAI)."""
+    consent = register_consent(user_id=1, accepted=True, aviso_text="aviso")
+    state = start_intake(situacion_autonoma)
+    for pregunta in situacion_autonoma.preguntas_intake:
+        state.responder(pregunta, "respuesta de prueba")
+
+    result = answer_engine.handle_turn(
+        consent, state, "", fake_llm_client, embedding_client=_EmbeddingClientQueFallaConVacio()
+    )
+
+    assert result.kind == "respuesta"
+    assert fake_llm_client.last_messages[0].content.strip() != ""
+    assert situacion_autonoma.nombre in fake_llm_client.last_messages[0].content
+
+
 def test_handle_turn_respeta_el_idioma_pedido(situacion_autonoma, fake_llm_client, fake_embedding_client):
     consent = register_consent(user_id=1, accepted=True, aviso_text="aviso")
     state = start_intake(situacion_autonoma)

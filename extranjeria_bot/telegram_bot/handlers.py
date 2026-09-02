@@ -292,3 +292,26 @@ async def _escalate_case(context: ContextTypes.DEFAULT_TYPE, session: UserSessio
         conn.close()
 
     await _notify_gestores(context, resumen)
+
+
+async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Manejador de errores global: sin esto, una excepción sin capturar en
+    cualquier handler (fallo de red, de la API del LLM, de Chroma...) deja
+    al cliente sin ninguna respuesta y sin enterarse — el error solo
+    aparece en el log del proceso. python-telegram-bot llama a esto
+    automáticamente para cualquier excepción no controlada."""
+    # logger.exception() asume que hay una excepción activa en el contexto
+    # actual (un bloque except); aquí no la hay, PTB nos la pasa explícita
+    # en context.error, así que se pasa como exc_info a logger.error().
+    logger.error("Excepción no controlada procesando un update", exc_info=context.error)
+
+    if not isinstance(update, Update) or update.effective_chat is None:
+        return
+
+    session = get_session(update.effective_chat.id)
+    try:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id, text=i18n.t("error_generico", session.idioma)
+        )
+    except Exception:
+        logger.exception("No se pudo avisar al usuario del error")

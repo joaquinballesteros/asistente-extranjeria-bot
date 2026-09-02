@@ -138,7 +138,22 @@ LLM_API_KEY=                 # tu API key de ese proveedor
 LLM_MODEL=                   # el modelo que quieras usar de ese proveedor
 
 VOYAGE_API_KEY=              # o OPENAI_API_KEY, para generar embeddings
+
+PRIVACY_POLICY_URL=          # enlace a tu política de privacidad completa
+DATA_CONTROLLER_NAME=        # nombre legal de tu gestoría (el "responsable del tratamiento")
 ```
+
+Estas dos últimas rellenan el aviso de protección de datos que ve **cada
+cliente** al principio de la conversación. Si las dejas vacías, ese aviso
+muestra literalmente `[FALTA CONFIGURAR DATA_CONTROLLER_NAME]` en su
+lugar — funciona igual para probar el bot, pero rellénalas antes de
+usarlo con clientes reales. Ese aviso es, además, un texto provisional
+sin revisión legal (ver "Limitaciones conocidas" al final).
+
+> **Cada vez que cambies algo en `.env`, tienes que reiniciar el bot**
+> (parar con `Ctrl+C` y volver a lanzar `python extranjeria_bot/main.py`)
+> para que recoja el cambio — el proceso solo lee `.env` al arrancar, no
+> mientras está corriendo.
 
 ### Cómo conseguir los `GESTORES_CHAT_IDS`
 
@@ -171,9 +186,6 @@ devuelve directamente su chat ID.)
 
 Si dejas `GESTORES_CHAT_IDS` vacío, el bot sigue funcionando con
 normalidad; simplemente no se notifica a nadie cuando se acepta una cita.
-Después de cambiar `.env` tienes que **reiniciar el bot** (parar con
-`Ctrl+C` y volver a lanzar `python extranjeria_bot/main.py`) para que
-recoja el cambio.
 
 ## 5. Añadir la normativa
 
@@ -210,6 +222,12 @@ ejecutarlo, solo reprocesa los ficheros que hayan cambiado):
 python scripts/ingest_normativa.py --only "07_Hojas Informativas Oficiales" --limit 3
 python scripts/ingest_normativa.py   # todo BASE DE DATOS/, cuando confirmes que va bien
 ```
+
+Indexar todo el corpus llama a la API de embeddings una vez por cada
+fragmento de cada documento, así que puede tardar varios minutos (y
+tiene un coste pequeño según el proveedor) — es normal que no sea
+instantáneo. Si necesitas volver a lanzarlo, no reprocesa lo que ya
+estaba indexado y no ha cambiado.
 
 ## 6. Arrancar el bot
 

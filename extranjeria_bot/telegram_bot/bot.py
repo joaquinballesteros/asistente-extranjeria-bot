@@ -58,6 +58,11 @@ def build_application() -> Application:
     )
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handlers.on_text_message))
 
+    # Sin esto, cualquier excepción no controlada en un handler (fallo de
+    # red, de la API del LLM, de Chroma...) deja al cliente sin respuesta
+    # y sin enterarse de nada; solo queda en el log del proceso.
+    application.add_error_handler(handlers.on_error)
+
     return application
 
 

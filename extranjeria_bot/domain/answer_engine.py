@@ -111,6 +111,21 @@ def _format_respuestas_intake(respuestas: dict[str, str]) -> str:
     return "\n".join(f"- {pregunta} {respuesta}" for pregunta, respuesta in respuestas.items())
 
 
+def _consulta_efectiva(query: str, situacion: Situacion, respuestas: dict[str, str]) -> str:
+    """Consulta a usar para el retrieval y el mensaje al LLM.
+
+    `query` llega vacía justo cuando el intake se acaba de completar (es
+    la señal que usa telegram_bot/handlers.py para decidir el CTA de
+    cita) — un texto vacío hace que la API de embeddings de OpenAI falle
+    directamente ("input cannot be an empty string"), así que en ese caso
+    se construye una consulta real a partir de la situación y las
+    respuestas del cliente en vez de mandar la cadena vacía tal cual.
+    """
+    if query.strip():
+        return query
+    return " ".join([situacion.nombre, *respuestas.values()])
+
+
 def handle_turn(
     consent: Consent | None,
     intake_state: IntakeState,
@@ -154,7 +169,9 @@ def handle_turn(
     if situacion.nivel_confianza == ConfidenceLevel.ESCALAR:
         return AnswerResult(kind="escalar", situacion=situacion, nivel_confianza=situacion.nivel_confianza)
 
-    resultado = combined_search(query, situacion=situacion.nombre, embedding_client=embedding_client)
+    consulta = _consulta_efectiva(query, situacion, intake_state.respuestas)
+
+    resultado = combined_search(consulta, situacion=situacion.nombre, embedding_client=embedding_client)
     normativa = resultado.normativa
 
     system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
@@ -163,7 +180,7 @@ def handle_turn(
         marcador_no_cumple=MARCADOR_NO_CUMPLE,
         normativa=_format_normativa_for_prompt(normativa),
     )
-    texto = llm_client.complete(system=system_prompt, messages=[ChatMessage(role="user", content=query)])
+    texto = llm_client.complete(system=system_prompt, messages=[ChatMessage(role="user", content=consulta)])
 
     if texto.strip() == MARCADOR_NO_CUMPLE:
         texto = NO_CUMPLE_MENSAJE.get(lang, NO_CUMPLE_MENSAJE[IDIOMA_POR_DEFECTO])

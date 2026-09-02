@@ -112,6 +112,20 @@ _TEXTOS: dict[str, dict[str, str]] = {
             "accepter de documents, photos ou fichiers ici. Merci de me l'expliquer par écrit."
         ),
     },
+    "error_generico": {
+        "es": (
+            "Ha ocurrido un error inesperado. Inténtalo de nuevo en unos minutos, "
+            "o escribe /start para empezar de nuevo."
+        ),
+        "en": (
+            "An unexpected error occurred. Please try again in a few minutes, "
+            "or send /start to begin again."
+        ),
+        "fr": (
+            "Une erreur inattendue s'est produite. Merci de réessayer dans "
+            "quelques minutes, ou envoyez /start pour recommencer."
+        ),
+    },
 }
 
 
