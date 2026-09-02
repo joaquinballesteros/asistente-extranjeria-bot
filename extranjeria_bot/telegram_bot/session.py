@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from extranjeria_bot.domain.appointment import Slot
 from extranjeria_bot.domain.consent import Consent
 from extranjeria_bot.domain.intake import IntakeState
 from extranjeria_bot.domain.models import NormativaChunk, Situacion
@@ -26,9 +25,12 @@ class UserSession:
     consent: Consent | None = None
     intake_state: IntakeState | None = None
     situaciones_ofrecidas: list[Situacion] = field(default_factory=list)
-    slots_ofrecidos: list[Slot] = field(default_factory=list)
     ultima_normativa_consultada: list[NormativaChunk] = field(default_factory=list)
     turnos_sin_cta: int = 0
+    # True justo después de que el cliente acepte el CTA de cita: el
+    # siguiente mensaje de texto que mande se interpreta como su teléfono
+    # o email de contacto, no como una pregunta normal (ver handlers.py).
+    esperando_contacto: bool = False
 
 
 _sessions: dict[int, UserSession] = {}

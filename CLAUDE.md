@@ -70,7 +70,6 @@ extranjeria_bot/
     lead_scoring.py       # Señales de conversión: cuándo ofrecer la cita
     knowledge_base.py     # Búsqueda sobre normativa indexada y sobre reglas curadas
     escalation.py         # Modelo de caso derivado + formato para el gestor
-    appointment.py        # Disponibilidad y reserva de citas
     answer_engine.py      # Orquesta todo; ningún import de Telegram
   knowledge/data/         # Índice de Chroma (persistente local) + reglas importadas. No editar a mano.
   rag/                    # Chunking de PDFs, embeddings, retriever, clientes LLM
@@ -120,9 +119,10 @@ intake necesarias, nivel de confianza.
 3. Respuesta según nivel de confianza (sección 4).
 4. `lead_scoring.py` decide, en paralelo, si mostrar el CTA de cita en ese
    punto — no depende solo de `Escalar siempre` (ver señales en README).
-5. Si el usuario acepta cita: pedir contacto, comprobar disponibilidad
-   (`appointment.py`), confirmar y notificar al gestor con el resumen del
-   caso.
+5. Si el usuario acepta cita: pedir teléfono o email de contacto y
+   notificar al gestor con el resumen del caso (`escalation.py`). El bot
+   no gestiona huecos ni reservas — es el gestor quien da la cita de
+   verdad, contactando directamente al cliente.
 
 ## 6. Variables de entorno
 
@@ -198,14 +198,15 @@ DATA_CONTROLLER_NAME=          # nombre legal de la gestoría, para el aviso de 
 - [ ] Implementar `domain/lead_scoring.py` con las señales iniciales
       (intake completo, preguntas de precio/plazo, número de turnos sin
       CTA mostrado).
-- [ ] Implementar `domain/appointment.py` con disponibilidad en JSON
-      simple (`config/disponibilidad.json`).
 - [ ] Implementar `domain/escalation.py`: formato del resumen que recibe
       el gestor (intake + normativa consultada + datos de contacto).
+      **Decisión**: no hay reserva de huecos de autoservicio — el bot le
+      pide al cliente su teléfono o email al aceptar el CTA, y es el
+      gestor quien da la cita de verdad al contactarlo directamente.
 - [ ] Implementar `telegram_bot/`: adaptador completo en modo **long
       polling** (`Application.run_polling()` de `python-telegram-bot`, no
-      webhook), con teclados para consentimiento, intake con botones
-      donde aplique, confirmación de cita.
+      webhook), con teclados para consentimiento e intake con botones
+      donde aplique.
 - [ ] Notificación a `GESTORES_CHAT_IDS` al agendarse una cita o al
       escalar un caso.
 

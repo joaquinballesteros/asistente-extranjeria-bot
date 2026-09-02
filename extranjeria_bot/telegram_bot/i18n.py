@@ -75,25 +75,21 @@ _TEXTOS: dict[str, dict[str, str]] = {
         "en": "Understood, I'm here if you have more questions.",
         "fr": "D'accord, je reste disponible si vous avez d'autres questions.",
     },
-    "no_slots": {
-        "es": "Ahora mismo no hay huecos libres, pero un gestor te contactará igualmente.",
-        "en": "There are no free slots right now, but a caseworker will contact you anyway.",
-        "fr": "Il n'y a pas de créneau disponible pour le moment, mais un conseiller vous contactera quand même.",
+    "pedir_contacto": {
+        "es": "Perfecto. Para que un gestor pueda darte cita, escríbeme tu teléfono o tu email de contacto.",
+        "en": "Great. So a caseworker can arrange your appointment, please send me your phone number or email.",
+        "fr": (
+            "Parfait. Pour qu'un conseiller puisse vous donner rendez-vous, merci de m'indiquer "
+            "votre numéro de téléphone ou votre e-mail."
+        ),
     },
-    "choose_slot": {
-        "es": "Elige un hueco para la llamada:",
-        "en": "Choose a time slot for the call:",
-        "fr": "Choisissez un créneau pour l'appel :",
-    },
-    "slot_unavailable": {
-        "es": "Ese hueco ya no está disponible, elige otro.",
-        "en": "That slot is no longer available, please choose another one.",
-        "fr": "Ce créneau n'est plus disponible, veuillez en choisir un autre.",
-    },
-    "slot_confirmed": {
-        "es": "Cita confirmada: {fecha}.",
-        "en": "Appointment confirmed: {fecha}.",
-        "fr": "Rendez-vous confirmé : {fecha}.",
+    "contacto_recibido": {
+        "es": "Gracias, hemos registrado tu contacto. Un gestor se pondrá en contacto contigo en breve para daros una cita.",
+        "en": "Thanks, we've saved your contact details. A caseworker will reach out shortly to arrange an appointment.",
+        "fr": (
+            "Merci, nous avons enregistré votre contact. Un conseiller vous contactera bientôt "
+            "pour convenir d'un rendez-vous."
+        ),
     },
     "consent_accept_button": {"es": "Acepto", "en": "I accept", "fr": "J'accepte"},
     "consent_decline_button": {"es": "No acepto", "en": "I don't accept", "fr": "Je n'accepte pas"},

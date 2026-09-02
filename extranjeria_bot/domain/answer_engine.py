@@ -3,8 +3,8 @@
 
 Sin dependencias de Telegram: telegram_bot/ (Fase 3) llama a `handle_turn`
 con lo que venga del usuario y decide cómo renderizar el `AnswerResult`
-(incluido, cuando `kind == "escalar"`, ofrecer la cita mediante
-appointment.py/escalation.py).
+(incluido, cuando `kind == "escalar"`, ofrecer el contacto con un gestor
+mediante escalation.py).
 """
 from __future__ import annotations
 

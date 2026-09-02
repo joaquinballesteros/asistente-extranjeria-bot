@@ -140,6 +140,41 @@ LLM_MODEL=                   # el modelo que quieras usar de ese proveedor
 VOYAGE_API_KEY=              # o OPENAI_API_KEY, para generar embeddings
 ```
 
+### Cómo conseguir los `GESTORES_CHAT_IDS`
+
+Cuando un cliente acepta una cita, el bot le envía el resumen del caso (con
+su teléfono o email) a cada uno de estos chats de Telegram, para que el
+gestor le dé la cita contactándolo directamente. **No es el `@usuario` de
+Telegram, es un número** (el "chat ID"). Para conseguirlo:
+
+1. Pide a cada gestor que le escriba `/start` a tu bot (el mismo que
+   creaste con @BotFather) desde su cuenta de Telegram.
+2. Abre esta URL en el navegador, sustituyendo `<TOKEN>` por el valor de
+   `TELEGRAM_BOT_TOKEN` de tu `.env`:
+   ```
+   https://api.telegram.org/bot<TOKEN>/getUpdates
+   ```
+3. Busca en el resultado un bloque como este y anota el número de `"id"`
+   dentro de `"chat"` — ese es el chat ID de esa persona:
+   ```json
+   "chat": { "id": 123456789, "first_name": "...", "type": "private" }
+   ```
+4. Repite con cada gestor y pon todos los IDs en `.env`, **separados por
+   comas y sin espacios**:
+   ```
+   GESTORES_CHAT_IDS=123456789,987654321
+   ```
+
+(Alternativa más rápida sin usar la URL de arriba: que cada gestor le
+escriba a [@userinfobot](https://t.me/userinfobot) en Telegram, que le
+devuelve directamente su chat ID.)
+
+Si dejas `GESTORES_CHAT_IDS` vacío, el bot sigue funcionando con
+normalidad; simplemente no se notifica a nadie cuando se acepta una cita.
+Después de cambiar `.env` tienes que **reiniciar el bot** (parar con
+`Ctrl+C` y volver a lanzar `python extranjeria_bot/main.py`) para que
+recoja el cambio.
+
 ## 5. Añadir la normativa
 
 **El corpus de normativa en PDF no se distribuye por git** (por tamaño y

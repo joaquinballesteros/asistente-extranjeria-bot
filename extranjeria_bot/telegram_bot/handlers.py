@@ -1,6 +1,9 @@
 """Handlers de Telegram: conectan los updates con domain/ (CLAUDE.md
 sección 5). Sigue el flujo: idioma -> consentimiento -> elegir situación
--> intake -> respuesta -> CTA de cita -> reserva -> notificación al gestor.
+-> intake -> respuesta -> CTA de cita -> pedir teléfono/email de contacto
+-> notificación al gestor (con lead persistido). El gestor es quien da la
+cita de verdad, contactando directamente al cliente con ese teléfono o
+email; el bot no gestiona huecos ni reservas.
 
 Es el único sitio del proyecto que puede importar `telegram`; toda la
 lógica de negocio vive en domain/ y no sabe que Telegram existe.
@@ -13,7 +16,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from extranjeria_bot.config import settings
-from extranjeria_bot.domain import appointment, escalation, lead_scoring
+from extranjeria_bot.domain import escalation, lead_scoring
 from extranjeria_bot.domain.answer_engine import handle_turn
 from extranjeria_bot.domain.consent import (
     ConsentRequiredError,
@@ -176,6 +179,12 @@ async def on_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     session = get_session(user_id)
     texto = update.message.text
 
+    if session.esperando_contacto:
+        session.esperando_contacto = False
+        await _escalate_case(context, session, contacto=texto)
+        await update.message.reply_text(i18n.t("contacto_recibido", session.idioma))
+        return
+
     if session.intake_state is None:
         await update.message.reply_text(i18n.t("start_first", session.idioma))
         return
@@ -220,7 +229,13 @@ async def _run_answer_engine(context: ContextTypes.DEFAULT_TYPE, session: UserSe
     await context.bot.send_message(chat_id=session.user_id, text=result.texto)
 
     datos_scoring = lead_scoring.LeadScoringInput(
-        intake_completo=session.intake_state.completo,
+        # `query_text == ""` es la señal de que el intake se acaba de
+        # completar EN ESTE turno (ver _ask_next_intake_question): usar
+        # session.intake_state.completo aquí sería siempre True desde ese
+        # momento en adelante, y el CTA se repetiría en cada respuesta en
+        # vez de dejar que las otras señales (precio/plazo, turnos sin
+        # CTA) decidan en los turnos de seguimiento.
+        intake_completo=(query_text == ""),
         ultimo_mensaje_usuario=query_text,
         turnos_sin_cta_mostrado=session.turnos_sin_cta,
     )
@@ -243,40 +258,22 @@ async def on_cta_response(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.edit_message_text(i18n.t("cta_declined_reply", session.idioma))
         return
 
-    slots = appointment.list_available_slots()
-    if not slots:
-        await query.edit_message_text(i18n.t("no_slots", session.idioma))
-        await _escalate_case(context, session, contacto=str(user_id))
-        return
-
-    session.slots_ofrecidos = slots
-    await query.edit_message_text(i18n.t("choose_slot", session.idioma), reply_markup=keyboards.slots_keyboard(slots))
+    # No se reserva nada aquí: se le pide el contacto al cliente y, con
+    # eso, se escala el caso (ver on_text_message). Es el gestor quien da
+    # la cita de verdad, llamando o escribiendo directamente al cliente.
+    session.esperando_contacto = True
+    await query.edit_message_text(i18n.t("pedir_contacto", session.idioma))
 
 
-async def on_slot_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    user_id = update.effective_user.id
-    session = get_session(user_id)
-
-    slot_id = query.data.removeprefix(keyboards.SLOT_PREFIX)
-    try:
-        slot = appointment.book_slot(slot_id)
-    except appointment.SlotNoDisponibleError:
-        await query.edit_message_text(i18n.t("slot_unavailable", session.idioma))
-        return
-
-    fecha = slot.inicio.strftime("%d/%m/%Y %H:%M")
-    await query.edit_message_text(i18n.t("slot_confirmed", session.idioma).format(fecha=fecha))
-    await _escalate_case(context, session, contacto=str(user_id), cita_texto=fecha)
+async def _notify_gestores(context: ContextTypes.DEFAULT_TYPE, texto: str) -> None:
+    for chat_id in settings.gestores_chat_ids:
+        try:
+            await context.bot.send_message(chat_id=chat_id, text=texto)
+        except Exception:
+            logger.exception("No se pudo notificar al gestor chat_id=%s", chat_id)
 
 
-async def _escalate_case(
-    context: ContextTypes.DEFAULT_TYPE,
-    session: UserSession,
-    contacto: str | None,
-    cita_texto: str | None = None,
-) -> None:
+async def _escalate_case(context: ContextTypes.DEFAULT_TYPE, session: UserSession, contacto: str | None) -> None:
     if session.intake_state is None:
         return
 
@@ -287,8 +284,6 @@ async def _escalate_case(
         contacto=contacto,
     )
     resumen = escalation.format_resumen_para_gestor(caso)
-    if cita_texto:
-        resumen += f"\nCita agendada: {cita_texto}"
 
     conn = get_sqlite_connection()
     try:
@@ -296,8 +291,4 @@ async def _escalate_case(
     finally:
         conn.close()
 
-    for chat_id in settings.gestores_chat_ids:
-        try:
-            await context.bot.send_message(chat_id=chat_id, text=resumen)
-        except Exception:
-            logger.exception("No se pudo notificar al gestor chat_id=%s", chat_id)
+    await _notify_gestores(context, resumen)

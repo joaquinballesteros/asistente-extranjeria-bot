@@ -1,14 +1,15 @@
-"""Teclados de Telegram: consentimiento, elección de situación, CTA de
-cita y elección de hueco (CLAUDE.md sección 7, Fase 3: "intake con botones
-donde aplique"). Las preguntas de intake en sí son texto libre (vienen del
-Excel de reglas como preguntas abiertas); los botones se usan donde la
-respuesta es una elección de un conjunto cerrado y pequeño de opciones.
+"""Teclados de Telegram: consentimiento, elección de situación y CTA de
+cita (CLAUDE.md sección 7, Fase 3: "intake con botones donde aplique").
+Las preguntas de intake en sí son texto libre (vienen del Excel de reglas
+como preguntas abiertas); los botones se usan donde la respuesta es una
+elección de un conjunto cerrado y pequeño de opciones. La cita en sí no
+se agenda con botones: el gestor la da directamente al contactar al
+cliente (ver telegram_bot/handlers.py).
 """
 from __future__ import annotations
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from extranjeria_bot.domain.appointment import Slot
 from extranjeria_bot.domain.models import GrupoSituacion, Situacion
 from extranjeria_bot.telegram_bot import i18n
 
@@ -18,7 +19,6 @@ GRUPO_PREFIX = "grupo:"
 GRUPO_IRREGULAR_CODE = "irregular"
 GRUPO_REGULAR_CODE = "regular"
 SITUACION_PREFIX = "situacion:"
-SLOT_PREFIX = "slot:"
 CTA_ACCEPT = "cta:accept"
 CTA_DECLINE = "cta:decline"
 IDIOMA_PREFIX = "idioma:"
@@ -69,11 +69,3 @@ def cta_keyboard(idioma: str) -> InlineKeyboardMarkup:
         [[InlineKeyboardButton(i18n.t("cta_accept", idioma), callback_data=CTA_ACCEPT),
           InlineKeyboardButton(i18n.t("cta_decline", idioma), callback_data=CTA_DECLINE)]]
     )
-
-
-def slots_keyboard(slots: list[Slot]) -> InlineKeyboardMarkup:
-    filas = [
-        [InlineKeyboardButton(slot.inicio.strftime("%d/%m %H:%M"), callback_data=f"{SLOT_PREFIX}{slot.id}")]
-        for slot in slots
-    ]
-    return InlineKeyboardMarkup(filas)

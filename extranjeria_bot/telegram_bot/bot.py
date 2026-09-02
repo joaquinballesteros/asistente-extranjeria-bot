@@ -50,7 +50,6 @@ def build_application() -> Application:
             pattern=f"^{keyboards.CTA_ACCEPT}$|^{keyboards.CTA_DECLINE}$",
         )
     )
-    application.add_handler(CallbackQueryHandler(handlers.on_slot_selected, pattern=f"^{keyboards.SLOT_PREFIX}"))
     application.add_handler(
         MessageHandler(
             filters.PHOTO | filters.Document.ALL | filters.AUDIO | filters.VIDEO | filters.VOICE,
