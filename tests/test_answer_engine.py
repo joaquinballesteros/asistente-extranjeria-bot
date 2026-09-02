@@ -6,7 +6,10 @@ import pytest
 
 from extranjeria_bot.domain import answer_engine
 from extranjeria_bot.domain import knowledge_base as kb
-from extranjeria_bot.domain.answer_engine import _format_normativa_for_prompt
+from extranjeria_bot.domain.answer_engine import (
+    _format_normativa_for_prompt,
+    _format_respuestas_intake,
+)
 from extranjeria_bot.domain.consent import ConsentRequiredError, register_consent
 from extranjeria_bot.domain.intake import start_intake
 from extranjeria_bot.domain.models import Categoria, ConfidenceLevel, NormativaChunk
@@ -41,6 +44,16 @@ def test_format_normativa_cita_rango_de_paginas_y_articulo():
     )
     texto = _format_normativa_for_prompt([chunk])
     assert "f.pdf, página 3-4, Artículo 5]" in texto
+
+
+def test_format_respuestas_intake_sin_respuestas():
+    assert "sin respuestas" in _format_respuestas_intake({})
+
+
+def test_format_respuestas_intake_con_respuestas():
+    texto = _format_respuestas_intake({"¿Edad?": "30", "¿Nacionalidad?": "marroquí"})
+    assert "- ¿Edad? 30" in texto
+    assert "- ¿Nacionalidad? marroquí" in texto
 
 
 def test_handle_turn_bloquea_sin_consentimiento(situacion_autonoma, fake_llm_client):
@@ -107,6 +120,59 @@ def test_handle_turn_responde_citando_normativa(situacion_autonoma, fake_llm_cli
     assert texto_normativa in fake_llm_client.last_system
     assert "6.pdf" in fake_llm_client.last_system
     assert "página 2" in fake_llm_client.last_system
+
+
+def test_handle_turn_incluye_las_respuestas_de_intake_en_el_prompt(
+    situacion_autonoma, fake_llm_client, fake_embedding_client
+):
+    consent = register_consent(user_id=1, accepted=True, aviso_text="aviso")
+    state = start_intake(situacion_autonoma)
+    for pregunta in situacion_autonoma.preguntas_intake:
+        state.responder(pregunta, f"respuesta a {pregunta}")
+
+    answer_engine.handle_turn(consent, state, "hola", fake_llm_client, embedding_client=fake_embedding_client)
+
+    for pregunta in situacion_autonoma.preguntas_intake:
+        assert pregunta in fake_llm_client.last_system
+        assert f"respuesta a {pregunta}" in fake_llm_client.last_system
+
+
+def test_handle_turn_sustituye_el_marcador_por_el_mensaje_fijo(
+    situacion_autonoma, fake_embedding_client
+):
+    from tests.conftest import FakeLLMClient
+
+    consent = register_consent(user_id=1, accepted=True, aviso_text="aviso")
+    state = start_intake(situacion_autonoma)
+    for pregunta in situacion_autonoma.preguntas_intake:
+        state.responder(pregunta, "no cumplo el requisito")
+
+    llm_marca_no_cumple = FakeLLMClient(response=answer_engine.MARCADOR_NO_CUMPLE)
+
+    result = answer_engine.handle_turn(
+        consent, state, "hola", llm_marca_no_cumple, embedding_client=fake_embedding_client
+    )
+
+    assert result.kind == "respuesta"
+    assert result.texto == answer_engine.NO_CUMPLE_MENSAJE["es"]
+    assert result.texto != answer_engine.MARCADOR_NO_CUMPLE
+
+
+def test_handle_turn_mensaje_no_cumple_respeta_el_idioma(situacion_autonoma, fake_embedding_client):
+    from tests.conftest import FakeLLMClient
+
+    consent = register_consent(user_id=1, accepted=True, aviso_text="aviso")
+    state = start_intake(situacion_autonoma)
+    for pregunta in situacion_autonoma.preguntas_intake:
+        state.responder(pregunta, "no cumplo el requisito")
+
+    llm_marca_no_cumple = FakeLLMClient(response=answer_engine.MARCADOR_NO_CUMPLE)
+
+    result = answer_engine.handle_turn(
+        consent, state, "hi", llm_marca_no_cumple, embedding_client=fake_embedding_client, lang="en"
+    )
+
+    assert result.texto == answer_engine.NO_CUMPLE_MENSAJE["en"]
 
 
 def test_handle_turn_respeta_el_idioma_pedido(situacion_autonoma, fake_llm_client, fake_embedding_client):

@@ -27,6 +27,35 @@ AnswerKind = Literal["pedir_intake", "escalar", "respuesta"]
 IDIOMA_NOMBRE = {"es": "español", "en": "English", "fr": "français"}
 IDIOMA_POR_DEFECTO = "es"
 
+# Si el LLM responde EXACTAMENTE con este marcador, se sustituye por el
+# mensaje fijo de NO_CUMPLE_MENSAJE (en el idioma del usuario) en vez de
+# reenviar lo que haya escrito el modelo: así el texto que ve el cliente
+# es siempre exactamente el mismo, palabra por palabra, no una paráfrasis
+# distinta cada vez.
+MARCADOR_NO_CUMPLE = "NO_CUMPLE_REQUISITOS"
+
+NO_CUMPLE_MENSAJE = {
+    "es": (
+        "📊 Información importante: según los datos facilitados, no se cumplen "
+        "los requisitos necesarios para este trámite.\n\n"
+        "Sin embargo, nuestro equipo se pondrá en contacto contigo para "
+        "analizar tu situación de forma personalizada y buscar la mejor solución."
+    ),
+    "en": (
+        "📊 Important information: based on the details you've provided, you "
+        "don't currently meet the requirements for this procedure.\n\n"
+        "However, our team will get in touch with you to review your "
+        "situation individually and look for the best solution."
+    ),
+    "fr": (
+        "📊 Information importante : d'après les informations fournies, vous "
+        "ne remplissez pas actuellement les conditions requises pour cette "
+        "démarche.\n\n"
+        "Notre équipe vous contactera néanmoins pour étudier votre situation "
+        "de manière personnalisée et rechercher la meilleure solution."
+    ),
+}
+
 SYSTEM_PROMPT_TEMPLATE = """\
 Eres un asistente de una gestoría de extranjería. Responde basándote \
 EXCLUSIVAMENTE en los fragmentos de normativa proporcionados a \
@@ -35,6 +64,16 @@ uses. Si la normativa proporcionada no es suficiente para responder con \
 seguridad, dilo explícitamente en vez de inventar una respuesta.
 
 Responde en {idioma_nombre}, aunque la normativa esté en español.
+
+Respuestas que ha dado el cliente sobre su caso:
+{respuestas_intake}
+
+Comprueba si, con esas respuestas, el cliente cumple los requisitos del \
+trámite según la normativa. Si resulta EVIDENTE que NO los cumple, \
+responde ÚNICAMENTE con esta palabra clave, sin comillas ni nada más: \
+{marcador_no_cumple}
+Si los cumple, o si la información no basta para estar seguro, responde \
+con tu valoración normal citando la normativa.
 
 Normativa disponible:
 {normativa}
@@ -66,6 +105,12 @@ def _format_normativa_for_prompt(chunks: list[NormativaChunk]) -> str:
     return "\n\n".join(parts)
 
 
+def _format_respuestas_intake(respuestas: dict[str, str]) -> str:
+    if not respuestas:
+        return "(sin respuestas registradas)"
+    return "\n".join(f"- {pregunta} {respuesta}" for pregunta, respuesta in respuestas.items())
+
+
 def handle_turn(
     consent: Consent | None,
     intake_state: IntakeState,
@@ -85,7 +130,11 @@ def handle_turn(
       (CLAUDE.md sección 4), y el llamador debe ofrecer cita.
     - En cualquier otro caso devuelve kind="respuesta" con el texto
       generado y la normativa citada; `nivel_confianza` indica si además
-      hay que marcar el caso para revisión posterior del gestor.
+      hay que marcar el caso para revisión posterior del gestor. Si el
+      LLM determina, a partir de las respuestas de intake y la normativa,
+      que el cliente NO cumple los requisitos del trámite, `texto` es
+      siempre el mismo mensaje fijo (NO_CUMPLE_MENSAJE), no una
+      paráfrasis distinta del LLM cada vez.
 
     Bloquea con ConsentRequiredError si no hay consentimiento válido: es el
     paso 0, obligatorio antes de cualquier otra cosa (sección 5 y 8).
@@ -110,9 +159,14 @@ def handle_turn(
 
     system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
         idioma_nombre=IDIOMA_NOMBRE.get(lang, IDIOMA_NOMBRE[IDIOMA_POR_DEFECTO]),
+        respuestas_intake=_format_respuestas_intake(intake_state.respuestas),
+        marcador_no_cumple=MARCADOR_NO_CUMPLE,
         normativa=_format_normativa_for_prompt(normativa),
     )
     texto = llm_client.complete(system=system_prompt, messages=[ChatMessage(role="user", content=query)])
+
+    if texto.strip() == MARCADOR_NO_CUMPLE:
+        texto = NO_CUMPLE_MENSAJE.get(lang, NO_CUMPLE_MENSAJE[IDIOMA_POR_DEFECTO])
 
     return AnswerResult(
         kind="respuesta",
