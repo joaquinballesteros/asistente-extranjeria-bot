@@ -9,64 +9,144 @@ humano cuando el caso lo requiere o conviene comercialmente.
 Ver [CLAUDE.md](CLAUDE.md) para la guía completa de arquitectura, modelo
 de confianza, flujo de conversación y roadmap de desarrollo.
 
-## Requisitos previos
+Esta guía está pensada para poder seguirse **sin experiencia previa en
+programación**. Vas a usar la "terminal" (una ventana donde se escriben
+comandos en vez de hacer clic) — cada paso te dice exactamente qué
+escribir.
 
-- Python 3.11 o superior.
-- [Homebrew](https://brew.sh) (macOS) o el gestor de paquetes de tu
-  distribución (Linux), para el motor de OCR.
-- Una cuenta de bot de Telegram (token de [@BotFather](https://t.me/BotFather)).
-- Una API key de al menos un proveedor de LLM (Anthropic, Gemini u OpenAI)
-  y de al menos un proveedor de embeddings (Voyage AI u OpenAI).
+## 1. Descargar lo necesario
 
-### OCR (extracción de PDFs escaneados)
+Antes de tocar el proyecto, instala esto en tu ordenador (una sola vez):
 
-El pipeline de ingesta usa OCR como fallback para páginas escaneadas
-(`extranjeria_bot/rag/pdf_extraction.py`). Necesita los binarios de
-`poppler` y `tesseract` instalados en el sistema (no son paquetes de
-Python):
+| Programa | Para qué | Enlace de descarga |
+|---|---|---|
+| Python 3.11 o superior | Ejecutar el bot | [python.org/downloads](https://www.python.org/downloads/) |
+| Git | Descargar el código del repositorio | [git-scm.com/downloads](https://git-scm.com/downloads) |
+| Tesseract OCR | Leer PDFs escaneados | Windows: [instalador UB-Mannheim](https://github.com/UB-Mannheim/tesseract/wiki) · macOS: se instala con Homebrew (paso siguiente) · Linux: `apt` (paso siguiente) |
+| Poppler | Convertir páginas de PDF a imagen para el OCR | Windows: [poppler-windows (release más reciente)](https://github.com/oschwartz10612/poppler-windows/releases) · macOS/Linux: paso siguiente |
+| Homebrew (solo macOS) | Instalar Tesseract y Poppler | [brew.sh](https://brew.sh) |
 
-```bash
-# macOS
-brew install poppler tesseract tesseract-lang
+Además necesitas:
+- Un bot de Telegram: habla con [@BotFather](https://t.me/BotFather) en
+  Telegram, escribe `/newbot`, sigue sus instrucciones y guarda el
+  **token** que te da (una cadena larga tipo `123456:ABC-...`).
+- Una API key de **al menos un** proveedor de LLM para generar las
+  respuestas: [Anthropic](https://console.anthropic.com),
+  [Google AI Studio](https://aistudio.google.com) (Gemini) u
+  [OpenAI](https://platform.openai.com).
+- Una API key de **al menos un** proveedor de embeddings para indexar la
+  normativa: [Voyage AI](https://www.voyageai.com) u OpenAI (la misma de
+  arriba sirve).
 
-# Debian/Ubuntu
-sudo apt install poppler-utils tesseract-ocr tesseract-ocr-spa
-```
+### Windows: pasos importantes durante la instalación
 
-## Puesta en marcha
+- **Python**: en el instalador, marca la casilla **"Add python.exe to
+  PATH"** antes de darle a Install. Si no la marcas, los comandos de más
+  abajo no funcionarán.
+- **Tesseract**: durante la instalación, en la pantalla de selección de
+  componentes, marca también el paquete de idioma **Spanish**.
+- **Poppler**: no tiene instalador, es una carpeta de programas ya
+  compilados. Descarga el `.zip` de la release, descomprímelo en un sitio
+  fijo (por ejemplo `C:\poppler`), y añade su subcarpeta `Library\bin` al
+  PATH del sistema:
+  1. Busca en el menú de inicio "Editar las variables de entorno del sistema" (o "Edit the system environment variables").
+  2. Botón "Variables de entorno...".
+  3. En "Variables de usuario", selecciona `Path` → "Editar" → "Nuevo".
+  4. Pega la ruta completa a la carpeta `Library\bin` dentro de donde descomprimiste Poppler (por ejemplo `C:\poppler\Library\bin`).
+  5. Acepta todo y **cierra y vuelve a abrir** la terminal para que el cambio surta efecto.
+
+## 2. Descargar el proyecto
+
+Abre una terminal:
+- **Windows**: busca "Símbolo del sistema" (o "cmd") en el menú de inicio.
+- **macOS**: busca "Terminal" en Spotlight (⌘+Espacio).
+- **Linux**: tu terminal habitual.
+
+Y ejecuta:
 
 ```bash
 git clone <url-del-repositorio>
 cd asistente-extranjeria-bot
+```
 
+(Alternativa sin Git: en la página del repositorio en GitHub, botón verde
+"Code" → "Download ZIP", y descomprímelo.)
+
+## 3. Instalar el proyecto
+
+**macOS**, para instalar Poppler y Tesseract con Homebrew (si aún no
+tienes Homebrew, instálalo primero desde [brew.sh](https://brew.sh)):
+
+```bash
+brew install poppler tesseract tesseract-lang
+```
+
+**Linux (Debian/Ubuntu)**:
+
+```bash
+sudo apt install poppler-utils tesseract-ocr tesseract-ocr-spa
+```
+
+Ahora, en las tres plataformas, crea el entorno virtual de Python e
+instala las dependencias del proyecto:
+
+**macOS / Linux**:
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-
-cp .env.example .env
 ```
 
-Rellena `.env` con tus valores (ver sección 6 de `CLAUDE.md` para el
+**Windows** (símbolo del sistema):
+
+```bat
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e ".[dev]"
+```
+
+> Si usas PowerShell en vez de "Símbolo del sistema" y `.venv\Scripts\Activate.ps1`
+> da un error de "no se puede cargar porque la ejecución de scripts está
+> deshabilitada", ejecuta antes: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
+
+Deberías ver `(.venv)` al principio de la línea de la terminal: significa
+que el entorno está activado. **Cada vez que abras una terminal nueva
+para trabajar en el proyecto, tienes que volver a activar el entorno**
+con el comando `source .venv/bin/activate` (o `.venv\Scripts\activate` en
+Windows) antes de ejecutar nada.
+
+## 4. Configurar las claves
+
+Copia la plantilla de configuración:
+
+```bash
+cp .env.example .env      # macOS / Linux
+copy .env.example .env    # Windows
+```
+
+Abre el fichero `.env` con cualquier editor de texto (Bloc de notas
+sirve) y rellena los valores (ver sección 6 de `CLAUDE.md` para el
 detalle de cada variable):
 
 ```
-TELEGRAM_BOT_TOKEN=          # token de @BotFather
-GESTORES_CHAT_IDS=           # ids de chat de Telegram de los gestores, separados por comas
+TELEGRAM_BOT_TOKEN=          # el token que te dio @BotFather
+GESTORES_CHAT_IDS=           # ids de chat de Telegram de los gestores, separados por comas (puede quedar vacío por ahora)
 
 LLM_PROVIDER=anthropic       # anthropic | gemini | openai | deepseek | none
-LLM_API_KEY=
-LLM_MODEL=
+LLM_API_KEY=                 # tu API key de ese proveedor
+LLM_MODEL=                   # el modelo que quieras usar de ese proveedor
 
 VOYAGE_API_KEY=              # o OPENAI_API_KEY, para generar embeddings
 ```
 
-### Normativa (BASE DE DATOS/)
+## 5. Añadir la normativa
 
-**El corpus de normativa en PDF no se distribuye por git** (está en
-`.gitignore` por tamaño y por evitar redistribuir documentación oficial
-sin control de versión). Tienes que colocar tu propia copia en
-`BASE DE DATOS/`, respetando la estructura de subcarpetas que espera el
-pipeline de ingesta (ver sección 1 de `CLAUDE.md`):
+**El corpus de normativa en PDF no se distribuye por git** (por tamaño y
+para no redistribuir documentación oficial sin control de versión).
+Tienes que colocar tu propia copia en una carpeta `BASE DE DATOS/` en la
+raíz del proyecto, respetando esta estructura de subcarpetas (ver sección
+1 de `CLAUDE.md`):
 
 ```
 BASE DE DATOS/
@@ -80,35 +160,32 @@ BASE DE DATOS/
   08_Modelos Extranjeria y Tasas/       # no se indexa (no es RAG conversacional)
 ```
 
-### Cargar las reglas curadas
-
-El Excel `Normativa y Reglas/LISTADO DE SITUACIONES Y NIVELES DE
-CONFIANZA.xlsx` sí está en el repositorio (es contenido de negocio
-curado, no un dato generado). Cárgalo a JSON:
+Carga el Excel de reglas curadas a formato JSON (ya viene incluido en el
+repositorio, en `Normativa y Reglas/`):
 
 ```bash
 python scripts/import_rules.py
 ```
 
-### Indexar la normativa
-
-Prueba primero con 2-3 PDFs de una sola subcarpeta antes de indexar todo
-el corpus (el pipeline es idempotente: si vuelves a ejecutarlo, solo
-reprocesa los ficheros que hayan cambiado):
+Indexa la normativa. Prueba primero con 2-3 PDFs de una sola subcarpeta
+antes de indexar todo el corpus (el pipeline es idempotente: si vuelves a
+ejecutarlo, solo reprocesa los ficheros que hayan cambiado):
 
 ```bash
 python scripts/ingest_normativa.py --only "07_Hojas Informativas Oficiales" --limit 3
 python scripts/ingest_normativa.py   # todo BASE DE DATOS/, cuando confirmes que va bien
 ```
 
-### Arrancar el bot
+## 6. Arrancar el bot
 
 ```bash
 python extranjeria_bot/main.py
 ```
 
-Se queda corriendo en primer plano en modo *long polling* (no necesita IP
-pública ni webhook). Párralo con `Ctrl+C`.
+Se queda corriendo en la terminal en modo *long polling* (no necesita IP
+pública ni configuración de red). Para pararlo, pulsa `Ctrl+C` en esa
+misma terminal. Mientras esté corriendo, puedes hablarle a tu bot desde
+la app de Telegram.
 
 ## Tests
 
@@ -132,8 +209,8 @@ directorios temporales, y usan un cliente de embeddings y de LLM falsos.
   desde `/start`. Los consentimientos y los leads sí son duraderos
   (SQLite).
 - No hay todavía un mecanismo de arranque automático/reinicio ante fallos
-  configurado (`launchd` en macOS, `systemd` en Linux) — hay que lanzar el
-  proceso a mano.
+  configurado (`launchd` en macOS, `systemd` en Linux, Tarea Programada en
+  Windows) — hay que lanzar el proceso a mano.
 - El menú de situaciones no cubre casos de menores extranjeros (decisión
   de producto: este bot está pensado para autoservicio de personas
   adultas).
